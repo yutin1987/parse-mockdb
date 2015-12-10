@@ -839,7 +839,7 @@ describe('ParseMock', function(){
         return Parse.Promise.error("whoah");
       }
       beforeDeleteWasRun = true;
-      return Parse.Promise.as(brand);
+      return Parse.Promise.as();
     }
 
     it('runs the hook before deleting the object', function() {
