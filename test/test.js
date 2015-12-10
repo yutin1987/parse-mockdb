@@ -61,12 +61,9 @@ function itemQueryP(price) {
   return query.find();
 }
 
-function behavesLikeParseObjectOnBeforeSave() {
+function behavesLikeParseObjectOnBeforeSave(typeName, ParseObjectOrUserSubclass) {
 
   context('when object has beforeSave hook registered', function() {
-
-    var ParseObjectOrUserSubclass = Brand;
-    var typeName = 'Brand';
 
     function beforeSavePromise(request) {
       var object = request.object;
@@ -899,7 +896,7 @@ describe('ParseMock', function(){
  *  });
  */
 
-  behavesLikeParseObjectOnBeforeSave();
+  behavesLikeParseObjectOnBeforeSave('Brand', Brand);
 
   context('when object has beforeDelete hook registered', function() {
 
