@@ -275,12 +275,26 @@ function normalizePath(path) {
 
 function handleRequest(method, path, body) {
   var explodedPath = normalizePath(path).split('/');
-  var request = {
-    method: method,
-    className: explodedPath[1],
-    data: body,
-    objectId: explodedPath[2],
-  };
+
+  var request;
+
+  if (explodedPath[0] === 'classes') {
+    request = {
+      method: method,
+      className: explodedPath[1],
+      data: body,
+      objectId: explodedPath[2],
+    };
+  } else if (explodedPath[0] === 'users') {
+    request = {
+      method: method,
+      className: '_User',
+      data: body,
+      objectId: explodedPath[1],
+    };
+  } else {
+    debugPrint('WARN', 'Unhandled path in request: ' + path);
+  }
   return HANDLERS[method](request);
 }
 
