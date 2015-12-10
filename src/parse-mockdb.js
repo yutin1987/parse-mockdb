@@ -83,10 +83,15 @@ function runHook(className, hookType, data) {
       user: "ParseMockDB doesn't define request.user."
     };
 
-    return hook(beforeSaveOrBeforeDeleteRequestObject).then((result) => {
-      debugPrint('HOOK', { result });
-      var newData = _.cloneDeep(result.toJSON());
-      return Parse.Promise.as(_.omit(newData, "ACL"));
+    return hook(beforeSaveOrBeforeDeleteRequestObject).then((beforeSaveOverrideValue) => {
+      debugPrint('HOOK', { beforeSaveOverrideValue });
+
+      // Unlike BeforeDeleteResponse, BeforeSaveResponse might specify
+      var objectToProceedWith =  hookType === 'beforeSave' && beforeSaveOverrideValue
+        ? _.cloneDeep(beforeSaveOverrideValue.toJSON())
+        : model;
+
+      return Parse.Promise.as(_.omit(objectToProceedWith, "ACL"));
     }, (error) => {
       debugPrint('HOOK', { error });
       return Parse.Promise.error(error);
@@ -332,8 +337,10 @@ function handleDeleteRequest(request) {
   const collection = getCollection(request.className);
   var objToDelete = collection[request.objectId];
 
-  delete collection[request.objectId]
-  return Parse.Promise.as(respond(200, {}));
+  return runHook(request.className, 'beforeDelete', objToDelete).then(result => {
+    delete collection[request.objectId];
+    return Parse.Promise.as(respond(200, {}));
+  });
 }
 
 function makePointer(className, id) {
