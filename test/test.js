@@ -61,6 +61,52 @@ function itemQueryP(price) {
   return query.find();
 }
 
+function behavesLikeParseObjectOnBeforeSave() {
+
+  context('when object has beforeSave hook registered', function() {
+
+    function beforeSavePromise(request) {
+      var brand = request.object;
+      if (brand.get("error")) {
+        return Parse.Promise.error("whoah");
+      }
+      brand.set('cool', true);
+      return Parse.Promise.as(brand);
+    }
+
+    it('runs the hook before saving the model and persists the object', function() {
+      ParseMockDB.registerHook('Brand', 'beforeSave', beforeSavePromise);
+
+      var brand = new Brand();
+      assert(!brand.has('cool'));
+
+      brand.save().then(function (savedBrand) {
+        assert(savedBrand.has('cool'));
+        assert(savedBrand.get('cool'));
+
+        new Parse.Query(Brand).first().then(function (queriedBrand) {
+          assert(queriedBrand.has('cool'));
+          assert(queriedBrand.get('cool'));
+        });
+      });
+    });
+
+    it('rejects the save if there is a problem', function(done) {
+      ParseMockDB.registerHook('Brand', 'beforeSave', beforeSavePromise);
+
+      var brand = new Brand({error: true});
+
+      brand.save().then(function (savedBrand) {
+        throw new Error("should not have saved")
+      }, function(error) {
+        assert.equal(error, "whoah");
+        done();
+      });
+    });
+  });
+
+}
+
 describe('ParseMock', function(){
   beforeEach(function() {
     Parse.MockDB.mockDB();
@@ -850,47 +896,7 @@ describe('ParseMock', function(){
  *  });
  */
 
-  context('when object has beforeSave hook registered', function() {
-
-    function beforeSavePromise(request) {
-      var brand = request.object;
-      if (brand.get("error")) {
-        return Parse.Promise.error("whoah");
-      }
-      brand.set('cool', true);
-      return Parse.Promise.as(brand);
-    }
-
-    it('runs the hook before saving the model and persists the object', function() {
-      ParseMockDB.registerHook('Brand', 'beforeSave', beforeSavePromise);
-
-      var brand = new Brand();
-      assert(!brand.has('cool'));
-
-      brand.save().then(function (savedBrand) {
-        assert(savedBrand.has('cool'));
-        assert(savedBrand.get('cool'));
-
-        new Parse.Query(Brand).first().then(function (queriedBrand) {
-          assert(queriedBrand.has('cool'));
-          assert(queriedBrand.get('cool'));
-        });
-      });
-    })
-
-    it('rejects the save if there is a problem', function(done) {
-      ParseMockDB.registerHook('Brand', 'beforeSave', beforeSavePromise);
-
-      var brand = new Brand({error: true});
-
-      brand.save().then(function (savedBrand) {
-        throw new Error("should not have saved")
-      }, function(error) {
-        assert.equal(error, "whoah");
-        done();
-      });
-    });
-  });
+  behavesLikeParseObjectOnBeforeSave();
 
   context('when object has beforeDelete hook registered', function() {
 
