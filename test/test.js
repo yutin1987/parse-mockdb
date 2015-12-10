@@ -91,7 +91,7 @@ describe('ParseMock', function(){
       });
     });
 
-    // TODO Extract shared behaviours...
+    // TODO Run all tests as shared behaviour between Object and User.
 
   });
 
