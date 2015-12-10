@@ -25,6 +25,8 @@ class Store extends Parse.Object {
 }
 Parse.Object.registerSubclass('Store', Store);
 
+class CustomUserSubclass extends Parse.User {}
+
 function createBrandP(name) {
   var brand = new Brand();
   brand.set("name", name);
@@ -47,6 +49,12 @@ function createStoreWithItemP(item) {
   return store.save();
 }
 
+function createUserP(name) {
+  var user = new CustomUserSubclass()
+  user.set('name', name);
+  return user.save();
+}
+
 function itemQueryP(price) {
   var query = new Parse.Query(Item);
   query.equalTo("price", price);
@@ -60,6 +68,31 @@ describe('ParseMock', function(){
 
   afterEach(function() {
     Parse.MockDB.cleanUp();
+  });
+
+  context('user class', function() {
+
+    it("should save user ", function(done) {
+      createUserP('Tom').then(function(user) {
+        console.log('user:' + JSON.stringify(user));
+        assert(user.get("name") === 'Tom');
+        done();
+      });
+    });
+
+    it('should save and find a user', function (done) {
+      createUserP('Tom').then(function(user) {
+        var query = new Parse.Query(CustomUserSubclass);
+        query.equalTo("name", 'Tom');
+        return query.first().then(function(user) {
+          assert(user.get('name') === 'Tom');
+          done();
+        });
+      });
+    });
+
+    // TODO Extract shared behaviours...
+
   });
 
   it("should save correctly", function(done) {
