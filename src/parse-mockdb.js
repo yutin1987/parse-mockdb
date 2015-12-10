@@ -74,7 +74,16 @@ function runHook(className, hookType, data) {
     var modelData = Object.assign(new Object, data, {className});
     var model = Parse.Object.fromJSON(_.omit(modelData, "ACL"));
 
-    return hook.bind(model)().then((result) => {
+    // TODO Stub out Parse.Cloud.useMasterKey() so that we can report the correct 'master'
+    // value here.
+    var beforeSaveRequest = {
+      installationId: 'parse-mockdb',
+      master: false,
+      object: model,
+      user: "ParseMockDB doesn't define request.user."
+    };
+
+    return hook(beforeSaveRequest).then((result) => {
       debugPrint('HOOK', { result });
       var newData = _.cloneDeep(result.toJSON());
       return Parse.Promise.as(_.omit(newData, "ACL"));
