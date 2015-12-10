@@ -96,9 +96,9 @@ function behavesLikeParseObjectOnBeforeSave() {
     it('rejects the save if there is a problem', function(done) {
       ParseMockDB.registerHook('Brand', 'beforeSave', beforeSavePromise);
 
-      var brand = new Brand({error: true});
+      var object = new Brand({error: true});
 
-      brand.save().then(function (savedBrand) {
+      object.save().then(function (savedObject) {
         throw new Error("should not have saved")
       }, function(error) {
         assert.equal(error, "whoah");
