@@ -70,11 +70,10 @@ describe('ParseMock', function(){
     Parse.MockDB.cleanUp();
   });
 
-  context('user class', function() {
+  context('supports Parse.User subclasses', function() {
 
-    it("should save user ", function(done) {
+    it("should save user", function(done) {
       createUserP('Tom').then(function(user) {
-        console.log('user:' + JSON.stringify(user));
         assert(user.get("name") === 'Tom');
         done();
       });
