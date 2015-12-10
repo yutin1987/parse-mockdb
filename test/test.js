@@ -838,6 +838,7 @@ describe('ParseMock', function(){
       if (brand.get("error")) {
         return Parse.Promise.error("whoah");
       }
+      beforeDeleteWasRun = true;
       return Parse.Promise.as(brand);
     }
 
