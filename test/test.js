@@ -191,32 +191,9 @@ describe('ParseMock', function(){
       });
     });
 
-    // TODO Run all tests as shared behaviour between Object and User.
-    function beforeSavePromise(request) {
-      var brand = request.object;
-      if (brand.get("error")) {
-        return Parse.Promise.error("whoah");
-      }
-      brand.set('cool', true);
-      return Parse.Promise.as(brand);
-    }
+    behavesLikeParseObjectOnBeforeSave('_User', CustomUserSubclass);
 
-    it('runs the hook before saving the model and persists the object', function() {
-      ParseMockDB.registerHook('_User', 'beforeSave', beforeSavePromise);
-
-      var brand = new CustomUserSubclass();
-      assert(!brand.has('cool'));
-
-      brand.save().then(function (savedCustomUserSubclass) {
-        assert(savedCustomUserSubclass.has('cool'));
-        assert(savedCustomUserSubclass.get('cool'));
-
-        new Parse.Query(CustomUserSubclass).first().then(function (queriedCustomUserSubclass) {
-          assert(queriedCustomUserSubclass.has('cool'));
-          assert(queriedCustomUserSubclass.get('cool'));
-        });
-      });
-    })
+    behavesLikeParseObjectOnBeforeDelete('_User', CustomUserSubclass);
 
   });
 
