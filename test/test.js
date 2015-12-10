@@ -65,6 +65,7 @@ function behavesLikeParseObjectOnBeforeSave() {
 
   context('when object has beforeSave hook registered', function() {
 
+    var ParseObjectOrUserSubclass = Brand;
     var typeName = 'Brand';
 
     function beforeSavePromise(request) {
@@ -79,14 +80,14 @@ function behavesLikeParseObjectOnBeforeSave() {
     it('runs the hook before saving the model and persists the object', function() {
       ParseMockDB.registerHook(typeName, 'beforeSave', beforeSavePromise);
 
-      var object = new Brand();
+      var object = new ParseObjectOrUserSubclass();
       assert(!object.has('cool'));
 
       object.save().then(function (savedObject) {
         assert(savedObject.has('cool'));
         assert(savedObject.get('cool'));
 
-        new Parse.Query(Brand).first().then(function (queriedObject) {
+        new Parse.Query(ParseObjectOrUserSubclass).first().then(function (queriedObject) {
           assert(queriedObject.has('cool'));
           assert(queriedObject.get('cool'));
         });
@@ -94,9 +95,9 @@ function behavesLikeParseObjectOnBeforeSave() {
     });
 
     it('rejects the save if there is a problem', function(done) {
-      ParseMockDB.registerHook('Brand', 'beforeSave', beforeSavePromise);
+      ParseMockDB.registerHook(typeName, 'beforeSave', beforeSavePromise);
 
-      var object = new Brand({error: true});
+      var object = new ParseObjectOrUserSubclass({error: true});
 
       object.save().then(function (savedObject) {
         throw new Error("should not have saved")
