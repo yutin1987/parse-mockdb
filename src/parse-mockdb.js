@@ -278,23 +278,27 @@ function handleRequest(method, path, body) {
 
   var request;
 
-  if (explodedPath[0] === 'classes') {
-    request = {
-      method: method,
-      className: explodedPath[1],
-      data: body,
-      objectId: explodedPath[2],
-    };
-  } else if (explodedPath[0] === 'users') {
-    request = {
-      method: method,
-      className: '_User',
-      data: body,
-      objectId: explodedPath[1],
-    };
-  } else {
-    debugPrint('WARN', 'Unhandled path in request: ' + path);
+  switch(explodedPath[0]) {
+    case 'users': {
+      request = {
+        method: method,
+        className: '_User',
+        data: body,
+        objectId: explodedPath[1],
+      };
+      break;
+    }
+    case 'classes':
+    default: {
+      request = {
+        method: method,
+        className: explodedPath[1],
+        data: body,
+        objectId: explodedPath[2],
+      };
+    }
   }
+
   return HANDLERS[method](request);
 }
 
