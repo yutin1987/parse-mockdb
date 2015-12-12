@@ -850,6 +850,28 @@ describe('ParseMock', function(){
         });
       });
     });
+
+    it('should get an empty array when objectId not in relation', function (done) {
+      createBrandP("Acme").then(function(brand) {
+        createBrandP("Acme 2").then(function(brand2) {
+          createBrandP("Acme 3").then(function(brand3) {
+            var collection = new Collection();
+            var brands = collection.relation('brands');
+            brands.add(brand);
+            brands.add(brand3);
+
+            collection.save().then(function(collection) {
+              var brandQuery = collection.relation('brands').query();
+              brandQuery.equalTo('objectId', brand2.id);
+              brandQuery.find().then(function(brands) {
+                assert(brands.length === 0);
+                done();
+              });
+            });
+          });
+        });
+      });
+    });
   });
 
   // See github issue: https://github.com/ParsePlatform/Parse-SDK-JS/issues/89

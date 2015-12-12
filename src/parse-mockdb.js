@@ -509,7 +509,13 @@ function queryFilter(whereClause) {
   return function(object) {
     if (whereClause.objectId && typeof whereClause.objectId !== "object") {
       // this is a get() request. simply match on ID
-      return object.objectId === whereClause.objectId;
+      if (object.objectId === whereClause.objectId && whereClause.$relatedTo) {
+        return QUERY_OPERATORS['$relatedTo'].apply(object.objectId, [whereClause.$relatedTo]);
+      } else if (object.objectId === whereClause.objectId) {
+        return true;
+      } else {
+        return false;        
+      }
     }
 
     // Go through each key in where clause
