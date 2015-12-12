@@ -187,6 +187,35 @@ const UPDATE_OPERATORS = {
   },
   Delete: function(key, value) {
     delete this[key];
+  },
+  Batch: function(key, value) {
+    const addRelation = value.ops.filter(op => op.__op === 'AddRelation')[0];
+    UPDATE_OPERATORS.AddRelation.bind(this)(key, addRelation)
+
+    const removeRelation = value.ops.filter(op => op.__op === 'RemoveRelation')[0];
+    UPDATE_OPERATORS.RemoveRelation.bind(this)(key, removeRelation)
+  },
+  AddRelation: function(key, value) {
+    if (!this[key]) {
+      this[key] = { __type: 'Relation', className: value.objects[0].className, ids: [] };
+    }
+
+    value.objects.forEach(obj => {
+      const idx = this[key].ids.indexOf(obj.objectId);
+      if (idx < 0) this[key].ids.push(obj.objectId);
+    });
+
+    this[key].ids = this[key].ids.sort();
+  },
+  RemoveRelation: function(key, value) {
+    if (!this[key]) {
+      this[key] = { __type: 'Relation', className: value.objects[0].className, ids: [] };
+    }
+
+    value.objects.forEach(obj => {
+      const idx = this[key].ids.indexOf(obj.objectId);
+      if (idx > -1) this[key].ids.splice(idx, 1);
+    });
   }
 }
 
@@ -317,6 +346,16 @@ function handlePostRequest(request) {
       result,
       { objectId: newId, createdAt: now, updatedAt: now }
     );
+
+    for (var key in result) {
+      const value = result[key];
+      const operator = value["__op"];
+
+      if (operator in UPDATE_OPERATORS) {
+        delete result[key];
+        UPDATE_OPERATORS[operator].bind(result)(key, value);
+      }
+    }
 
     collection[newId] = result;
 
@@ -489,6 +528,10 @@ function evaluateObject(object, whereParams, key) {
       return QUERY_OPERATORS['$eq'].apply(object[key], [whereParams]);
     }
 
+    if (key === '$relatedTo' && isPointer(whereParams.object)) {
+      return QUERY_OPERATORS['$relatedTo'].apply(object.objectId, [whereParams]);
+    }
+
     // Process each key in where clause to determine if we have a match
     return _.reduce(whereParams, function(matches, value, constraint) {
       var keyValue = deserializeQueryParam(object[key]);
@@ -569,6 +612,11 @@ const QUERY_OPERATORS = {
         return objectsAreEqual(obj1, obj2);
       }, this);
     }, this);
+  },
+  '$relatedTo': function(value) {
+    const relatedObj = fetchObjectByPointer(value.object);
+    const ids = relatedObj[value.key].ids || [];
+    return ids.indexOf(this) > -1;
   },
 }
 
