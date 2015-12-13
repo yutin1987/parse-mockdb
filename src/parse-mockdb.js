@@ -598,7 +598,7 @@ function evaluateObject(object, whereParams, key) {
  */
 const QUERY_OPERATORS = {
   '$exists': function(value) {
-    return !!this;
+    return !!this === value;
   },
   '$in': function(values) {
     return _.any(values, function(value) {
