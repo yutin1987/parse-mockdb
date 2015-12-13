@@ -1009,6 +1009,45 @@ describe('ParseMock', function(){
     });
   });
 
+  context('Parse.Role support', function() {
+
+    it("saves and finds role", function(done) {
+      var acl = new Parse.ACL({});
+      var role = new Parse.Role('Admin', acl);
+      role.save().done(function(role) {
+        assert(role.get('name'));
+        done();
+      })
+    });
+
+    it("should retrieve relation correctly", function(done) {
+      var roleId = null;
+      // Given
+      var acl = new Parse.ACL({});
+      new Parse.User().save().then(function(user) {
+        var role = new Parse.Role('Admin', acl);
+        var users = role.relation('users');
+        users.add(user);
+
+        return role.save().then(function(role) {
+          roleId = role.id;
+          // NB: using equalTo & notEqualTo here to match against members of relation.
+          // See http://stackoverflow.com/a/32544695/590767
+          var roleQuery = new Parse.Query(Parse.Role);
+          roleQuery.equalTo('name', 'Admin');
+          roleQuery.equalTo('users', user);
+          return roleQuery.first();
+        });
+      })
+      .done(function (role) {
+        assert(role)
+        assert(role.id === roleId);
+        done();
+      });
+    });
+
+  });
+
   // See github issue: https://github.com/ParsePlatform/Parse-SDK-JS/issues/89
   // and uncomment, delete or rewrite when resolved
 /*
