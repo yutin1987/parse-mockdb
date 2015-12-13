@@ -692,6 +692,11 @@ function objectsAreEqual(obj1, obj2) {
     return true;
   }
 
+  // relation
+  if (obj1.__type === 'Relation' && obj1.ids !== undefined && obj1.ids.indexOf(obj2.id || obj2.objectId) > -1) {
+    return true;
+  }
+
   // objects
   if (_.isEqual(obj1, obj2)) {
     return true;
