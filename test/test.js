@@ -165,9 +165,7 @@ function behavesLikeParseObjectOnBeforeDelete(typeName, ParseObjectOrUserSubclas
     });
 
   });
-
 }
-
 
 describe('ParseMock', function(){
   beforeEach(function() {
@@ -1040,6 +1038,33 @@ describe('ParseMock', function(){
       });
     });
   });
+
+  context('Parse.Cloud.run support', function() {
+    it('should get 2 items', function() {
+      Parse.Cloud.define('findItem', (request, response) => {
+        const qBrand = new Parse.Query('Brand');
+        qBrand.equalTo('name', request.params.name);
+
+        qBrand.find().then((result) => {
+          response.success(result);
+        });
+      });
+
+      return Parse.Promise.when([
+        createBrandP('Acme'),
+        createBrandP('Acme'),
+        createBrandP('Acme 2'),
+      ])
+      .then((brand1, brand2, brand3) => {
+        return Parse.Cloud.run('findItem', { 'name': 'Acme' }, {useMasterKey: true})
+          .then((result) => {
+            assert(result.length === 2);
+          }, (error) => {
+            throw new Error("should not have saved");
+          });
+      });
+    });
+  })
 
   context('Parse.Role support', function() {
 

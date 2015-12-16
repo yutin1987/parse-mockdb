@@ -21,6 +21,7 @@ const HANDLERS = {
 
 var db = {};
 var hooks = {};
+var define = {};
 
 var default_controller = null;
 var mocked = false;
@@ -252,10 +253,10 @@ var MockRESTController = {
     var result;
     if (path === "batch") {
       debugPrint('BATCH', {method, path, data, options});
-      result = handleBatchRequest(method, path, data);
+      result = handleBatchRequest(method, path, data, options);
     } else {
       debugPrint('REQUEST', {method, path, data, options});
-      result = handleRequest(method, path, data);
+      result = handleRequest(method, path, data, options);
     }
 
     // Status of database after handling request above
@@ -302,7 +303,7 @@ function normalizePath(path) {
   return path.replace('/1/', '');
 }
 
-function handleRequest(method, path, body) {
+function handleRequest(method, path, body, options) {
   var explodedPath = normalizePath(path).split('/');
 
   var request;
@@ -314,9 +315,18 @@ function handleRequest(method, path, body) {
         className: '_User',
         data: body,
         objectId: explodedPath[1],
+        master: options && options.useMasterKey ? true : false,
       };
       break;
     }
+    case 'functions':
+      request = {
+        method: method,
+        functions: explodedPath[1],
+        data: body,
+        master: options && options.useMasterKey ? true : false,
+      };
+      break;
     case 'classes':
     default: {
       request = {
@@ -324,6 +334,7 @@ function handleRequest(method, path, body) {
         className: explodedPath[1],
         data: body,
         objectId: explodedPath[2],
+        master: options && options.useMasterKey ? true : false,
       };
     }
   }
@@ -369,36 +380,55 @@ function handleGetRequest(request) {
  * Handles a POST request (Parse.Object.save())
  */
 function handlePostRequest(request) {
-  const collection = getCollection(request.className);
+  if (request.functions) {
+    const promise = new Parse.Promise();
 
-  return runHook(request.className, 'beforeSave', request.data).then(result => {
-    const newId = _.uniqueId();
-    const now = new Date();
+    define[request.functions]({
+      user: undefined,
+      master: !!request.master,
+      params: request.data,
+    }, {
+      success: (result) => promise.resolve(result),
+      error: (error) => promise.reject(error),
+    });
 
-    var newObject = Object.assign(
-      result,
-      { objectId: newId, createdAt: now, updatedAt: now }
-    );
+    return promise.then((response) => {
+      return respond(200, { "result": response });
+    }, (error) => {
+      return { code: 400, message: error };
+    });
+  } else if(request.className) {
+    const collection = getCollection(request.className);
 
-    for (var key in result) {
-      const value = result[key];
-      const operator = value["__op"];
+    return runHook(request.className, 'beforeSave', request.data).then(result => {
+      const newId = _.uniqueId();
+      const now = new Date();
 
-      if (operator in UPDATE_OPERATORS) {
-        delete result[key];
-        UPDATE_OPERATORS[operator].bind(result)(key, value);
+      var newObject = Object.assign(
+        result,
+        { objectId: newId, createdAt: now, updatedAt: now }
+      );
+
+      for (var key in result) {
+        const value = result[key];
+        const operator = value["__op"];
+
+        if (operator in UPDATE_OPERATORS) {
+          delete result[key];
+          UPDATE_OPERATORS[operator].bind(result)(key, value);
+        }
       }
-    }
 
-    collection[newId] = result;
+      collection[newId] = result;
 
-    var response = Object.assign(
-      _.cloneDeep(_.omit(newObject, 'updatedAt')),
-      { createdAt: result.createdAt.toJSON() }
-    );
+      var response = Object.assign(
+        _.cloneDeep(_.omit(newObject, 'updatedAt')),
+        { createdAt: result.createdAt.toJSON() }
+      );
 
-    return Parse.Promise.as(respond(201, response));
-  });
+      return Parse.Promise.as(respond(201, response));
+    });
+  };
 }
 
 function handlePutRequest(request) {
@@ -729,6 +759,24 @@ function promiseResultSync(promise) {
     result = res;
   });
   return result;
+}
+
+if (Parse.Cloud) {
+  Parse.Cloud.define = function(name, handler) {
+    define[name] = handler;
+  }
+  Parse.Cloud.beforeSave = function(name, handler) {
+    Parse.MockDB.registerHook(name, 'beforeSave', handler);
+  }
+  Parse.Cloud.afterSave = function(name, handler) {
+    Parse.MockDB.registerHook(name, 'afterSave', handler);
+  }
+  Parse.Cloud.beforeDelete = function(name, handler) {
+    Parse.MockDB.registerHook(name, 'beforeDelete', handler);
+  }
+  Parse.Cloud.afterDelete = function(name, handler) {
+    Parse.MockDB.registerHook(name, 'afterDelete', handler);
+  }
 }
 
 Parse.MockDB = {
