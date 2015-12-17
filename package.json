@@ -7,7 +7,7 @@
     "node": ">=4.0.0"
   },
   "scripts": {
-    "test": "mocha ./test/test"
+    "test": "mocha --compilers js:babel/register test/*.test.js"
   },
   "repository": {
     "type": "git",
@@ -27,11 +27,16 @@
   "homepage": "https://github.com/HustleInc/parse-mockdb",
   "dependencies": {
     "lodash": "^3.5.0",
-    "parse": "^1.6.0",
+    "parse": "^1.6.7",
     "parse-shim": "^1.0.1"
   },
   "devDependencies": {
-    "mocha": "^2.2.5"
+    "babel": "^5.8.23",
+    "babel-core": "^5.8.25",
+    "chai": "^3.3.0",
+    "mocha": "^2.3.3",
+    "sinon": "^1.17.2",
+    "sinon-chai": "^2.8.0"
   },
   "directories": {
     "test": "test"

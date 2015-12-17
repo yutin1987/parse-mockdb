@@ -72,17 +72,18 @@ function behavesLikeParseObjectOnBeforeSave(typeName, ParseObjectOrUserSubclass)
 
   context('when object has beforeSave hook registered', function() {
 
-    function beforeSavePromise(request) {
+    function beforeSave(request, response) {
       var object = request.object;
       if (object.get("error")) {
-        return Parse.Promise.error("whoah");
+        response.error("whoah");
+      } else {
+        object.set('cool', true);
+        response.success();
       }
-      object.set('cool', true);
-      return Parse.Promise.as(object);
     }
 
     it('runs the hook before saving the model and persists the object', function() {
-      ParseMockDB.registerHook(typeName, 'beforeSave', beforeSavePromise);
+      Parse.Cloud.beforeSave(typeName, beforeSave);
 
       var object = new ParseObjectOrUserSubclass();
       assert(!object.has('cool'));
@@ -99,14 +100,14 @@ function behavesLikeParseObjectOnBeforeSave(typeName, ParseObjectOrUserSubclass)
     });
 
     it('rejects the save if there is a problem', function(done) {
-      ParseMockDB.registerHook(typeName, 'beforeSave', beforeSavePromise);
+      Parse.Cloud.beforeSave(typeName, beforeSave);
 
       var object = new ParseObjectOrUserSubclass({error: true});
 
       object.save().then(function (savedObject) {
         throw new Error("should not have saved")
       }, function(error) {
-        assert.equal(error, "whoah");
+        assert.equal(error.message, 'whoah');
         done();
       });
     });
@@ -124,17 +125,18 @@ function behavesLikeParseObjectOnBeforeDelete(typeName, ParseObjectOrUserSubclas
       beforeDeleteWasRun = false;
     });
 
-    function beforeDeletePromise(request) {
+    function beforeDelete(request, response) {
       var object = request.object;
       if (object.get("error")) {
-        return Parse.Promise.error("whoah");
+        response.error('whoah');
+      } else {
+        beforeDeleteWasRun = true;
+        response.success();
       }
-      beforeDeleteWasRun = true;
-      return Parse.Promise.as();
     }
 
     it('runs the hook before deleting the object', function() {
-      ParseMockDB.registerHook(typeName, 'beforeDelete', beforeDeletePromise);
+      Parse.Cloud.beforeDelete(typeName, beforeDelete);
 
       new ParseObjectOrUserSubclass().save().done(function (savedParseObjectOrUserSubclass) {
         return Parse.Object.destroyAll([savedParseObjectOrUserSubclass]);
@@ -148,7 +150,7 @@ function behavesLikeParseObjectOnBeforeDelete(typeName, ParseObjectOrUserSubclas
     });
 
     it('rejects the delete if there is a problem', function(done) {
-      ParseMockDB.registerHook(typeName, 'beforeDelete', beforeDeletePromise);
+      Parse.Cloud.beforeDelete(typeName, beforeDelete);
 
       var object = new ParseObjectOrUserSubclass({error: true});
       object.save().done(function (savedParseObjectOrUserSubclass) {
@@ -156,7 +158,7 @@ function behavesLikeParseObjectOnBeforeDelete(typeName, ParseObjectOrUserSubclas
       }).then(function (deletedParseObjectOrUserSubclass) {
           throw new Error("should not have deleted")
         }, function(error) {
-          assert.equal(error, "whoah");
+          assert.equal(error[0].message, "whoah");
           return new Parse.Query(ParseObjectOrUserSubclass).find();
         }).done(function(results) {
           assert.equal(results.length, 1);

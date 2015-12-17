@@ -20,8 +20,13 @@ const HANDLERS = {
 }
 
 var db = {};
-var hooks = {};
 var define = {};
+var hooks = {
+  beforeSave: {},
+  afterSave: {},
+  beforeDelete: {},
+  afterDelete: {},
+};
 
 var default_controller = null;
 var mocked = false;
@@ -53,26 +58,14 @@ function unMockDB() {
  */
 function cleanUp() {
   db = {};
-  hooks = {};
+  define = {};
+  hooks = {
+    beforeSave: {},
+    afterSave: {},
+    beforeDelete: {},
+    afterDelete: {},
+  };
 }
-
-/**
- * Registers a hook to on a class denoted by className.
- *
- * @param {string} className The name of the class to register hook on.
- * @param {string} hookType One of 'beforeSave', 'afterSave', 'beforeDelete', 'afterDelete'
- * @param {function} hookFn Function that will be called with `this` bound to hydrated model.
- *                          Must return a promise.
- *
- * @note Only supports beforeSave at the moment.
- */
-function registerHook(className, hookType, hookFn) {
-  if (!hooks[className]) {
-    hooks[className] = {};
-  }
-
-  hooks[className][hookType] = hookFn;
-};
 
 /**
  * Retrieves a previously registered hook.
@@ -84,45 +77,6 @@ function getHook(className, hookType) {
   if (hooks[className] && hooks[className][hookType]) {
     return hooks[className][hookType];
   }
-}
-
-/**
- * Executes a registered hook with data provided.
- *
- * Hydrates the data into an instance of the class named by `className` param and binds it to the
- * function to be run.
- *
- * @param {string} className The name of the class to get the hook on.
- * @param {string} hookType One of 'beforeSave', 'afterSave', 'beforeDelete', 'afterDelete'
- * @param {Object} data The Data that is to be hydrated into an instance of className class.
- */
-function runHook(className, hookType, data) {
-  const hook = getHook(className, hookType);
-  if (hook) {
-    const modelData = Object.assign(new Object, data, {className});
-    const model = Parse.Object.fromJSON(modelData);
-
-    // TODO Stub out Parse.Cloud.useMasterKey() so that we can report the correct 'master'
-    // value here.
-    var beforeSaveOrBeforeDeleteRequestObject = {
-      installationId: 'parse-mockdb',
-      master: false,
-      object: model,
-      user: "ParseMockDB doesn't define request.user."
-    };
-
-    return hook(beforeSaveOrBeforeDeleteRequestObject).done((beforeSaveOverrideValue) => {
-      debugPrint('HOOK', { beforeSaveOverrideValue });
-
-      // Unlike BeforeDeleteResponse, BeforeSaveResponse might specify
-      var objectToProceedWith =  hookType === 'beforeSave' && beforeSaveOverrideValue
-        ? _.cloneDeep(beforeSaveOverrideValue.toJSON())
-        : model;
-
-      return Parse.Promise.as(_.omit(objectToProceedWith, "ACL"));
-    });
-  }
-  return Parse.Promise.as(data);
 }
 
 // Destructive. Takes data for update operation and removes all atomic operations.
@@ -380,9 +334,9 @@ function handleGetRequest(request) {
  * Handles a POST request (Parse.Object.save())
  */
 function handlePostRequest(request) {
-  if (request.functions) {
-    const promise = new Parse.Promise();
+  const promise = new Parse.Promise();
 
+  if (request.functions) {
     define[request.functions]({
       user: undefined,
       master: !!request.master,
@@ -398,18 +352,38 @@ function handlePostRequest(request) {
       return { code: 400, message: error };
     });
   } else if(request.className) {
-    const collection = getCollection(request.className);
+    const {
+      className,
+      data,
+    } = request;
 
-    return runHook(request.className, 'beforeSave', request.data).then(result => {
+    const collection = getCollection(className);
+    const object =  new Parse.Object(className);
+    object.set(data);
+
+    if (hooks.beforeSave[className]) {
+      hooks.beforeSave[className]({
+        user: undefined,
+        master: !!request.master,
+        object: object,
+      }, {
+        success: (result) => promise.resolve(result),
+        error: (error) => promise.reject(error)
+      });
+    } else {
+      promise.resolve();
+    }
+
+    return promise.then(() => {
+      const collection = getCollection(className);
       const newId = _.uniqueId();
-      const now = new Date();
 
-      var newObject = Object.assign(
-        result,
-        { objectId: newId, createdAt: now, updatedAt: now }
+      const result = Object.assign(
+        object.toJSON(),
+        { objectId: newId, createdAt: new Date(), updatedAt: new Date() }
       );
 
-      for (var key in result) {
+      for (let key in result) {
         const value = result[key];
         const operator = value["__op"];
 
@@ -421,12 +395,24 @@ function handlePostRequest(request) {
 
       collection[newId] = result;
 
-      var response = Object.assign(
-        _.cloneDeep(_.omit(newObject, 'updatedAt')),
+      const response = Object.assign(
+        _.cloneDeep(_.omit(result, 'updatedAt')),
         { createdAt: result.createdAt.toJSON() }
       );
 
-      return Parse.Promise.as(respond(201, response));
+      if (hooks.afterSave[className]) {
+        const savedObject = Parse.Object.fromJSON(Object.assign({}, result, {className}));
+
+        hooks.afterSave[className]({
+          user: undefined,
+          master: !!request.master,
+          object: savedObject,
+        });
+      }
+
+      return respond(201, response);
+    }, (error) => {
+      return { code: 400, message: error };
     });
   };
 }
@@ -446,24 +432,81 @@ function handlePutRequest(request) {
   );
 
   applyOps(updatedObject, ops);
+  
+  const object =  new Parse.Object(request.className);
+  object.set(updatedObject);
 
-  return runHook(request.className, 'beforeSave', updatedObject).then(result => {
-    collection[request.objectId] = updatedObject;
-    var response = Object.assign(
-      _.cloneDeep(_.omit(result, ['createdAt', 'objectId'])),
+  const promise = new Parse.Promise();
+
+  if (hooks.beforeSave[request.className]) {
+    hooks.beforeSave[request.className]({
+      user: undefined,
+      master: !!request.master,
+      object: object,
+    }, {
+      success: (result) => promise.resolve(result),
+      error: (error) => promise.reject(error),
+    });
+  } else {
+    promise.resolve();
+  }
+
+  return promise.then(() => {
+    if (hooks.afterSave[request.className]) {
+      hooks.afterSave[request.className]({
+        user: undefined,
+        master: !!request.master,
+        object: object,
+      });
+    }
+
+    collection[request.objectId] = object.toJSON();
+    const response = Object.assign(
+      _.cloneDeep(_.omit(object.toJSON(), ['createdAt', 'objectId'])),
       { updatedAt: now }
     );
-    return Parse.Promise.as(respond(200, response));
+
+    return respond(201, response);
+  }, (error) => {
+    return { code: 400, message: error };
   });
 }
 
 function handleDeleteRequest(request) {
   const collection = getCollection(request.className);
-  var objToDelete = collection[request.objectId];
+  
+  const object =  new Parse.Object(request.className);
+  object.set(collection[request.objectId]);
 
-  return runHook(request.className, 'beforeDelete', objToDelete).then(result => {
+  const promise = new Parse.Promise();
+
+  if (hooks.beforeDelete[request.className]) {
+    hooks.beforeDelete[request.className]({
+      user: undefined,
+      master: !!request.master,
+      object: object,
+    }, {
+      success: (result) => promise.resolve(result),
+      error: (error) => promise.reject(error),
+    });
+  } else {
+    promise.resolve();
+  }
+
+  return promise.then(() => {
     delete collection[request.objectId];
-    return Parse.Promise.as(respond(200, {}));
+
+    if (hooks.afterDelete[request.className]) {
+      hooks.afterDelete[request.className]({
+        user: undefined,
+        master: !!request.master,
+        object: object,
+      });
+    }
+
+    return respond(201, {});
+  }, (error) => {
+    return { code: 400, message: error };
   });
 }
 
@@ -762,21 +805,11 @@ function promiseResultSync(promise) {
 }
 
 if (Parse.Cloud) {
-  Parse.Cloud.define = function(name, handler) {
-    define[name] = handler;
-  }
-  Parse.Cloud.beforeSave = function(name, handler) {
-    Parse.MockDB.registerHook(name, 'beforeSave', handler);
-  }
-  Parse.Cloud.afterSave = function(name, handler) {
-    Parse.MockDB.registerHook(name, 'afterSave', handler);
-  }
-  Parse.Cloud.beforeDelete = function(name, handler) {
-    Parse.MockDB.registerHook(name, 'beforeDelete', handler);
-  }
-  Parse.Cloud.afterDelete = function(name, handler) {
-    Parse.MockDB.registerHook(name, 'afterDelete', handler);
-  }
+  Parse.Cloud.define = (name, handler) => define[name] = handler;
+  Parse.Cloud.beforeSave = (name, handler) => hooks.beforeSave[name] = handler;
+  Parse.Cloud.afterSave = (name, handler) => hooks.afterSave[name] = handler;
+  Parse.Cloud.beforeDelete = (name, handler) => hooks.beforeDelete[name] = handler;
+  Parse.Cloud.afterDelete = (name, handler) => hooks.afterDelete[name] = handler;
 }
 
 Parse.MockDB = {
@@ -784,7 +817,6 @@ Parse.MockDB = {
   unMockDB: unMockDB,
   cleanUp: cleanUp,
   promiseResultSync: promiseResultSync,
-  registerHook: registerHook,
 };
 
 module.exports = Parse.MockDB;
