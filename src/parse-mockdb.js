@@ -223,13 +223,16 @@ var MockRESTController = {
     // Status of database after handling request above
     debugPrint('DB', db);
 
-    return result.then(function(result) {
-      debugPrint('RESPONSE', result.response);
-      return Parse.Promise.when([
-        result.response,
-        result.status,
-      ]);
-    });
+    return result
+      .then((result) => {
+        debugPrint('RESPONSE', result.response);
+        return Parse.Promise.when([
+          result.response,
+          result.status,
+        ]);
+      }, (error) => {
+        return Parse.Promise.error({ error: 400, message: error });
+      });
   },
   ajax: function() {
     /* no-op */
@@ -267,12 +270,10 @@ function normalizePath(path) {
 function handleRequest(method, path, body, options) {
   var explodedPath = normalizePath(path).split('/');
 
-  Object.keys(body).map((key) => {
+  Object.keys(body || {}).map((key) => {
     const value = body[key];
 
-    if (typeof value === 'object') {
-      if ( value.__type === 'Date' ) body[key] = new Date(value.iso);
-    }
+    if ( isDate(value) ) body[key] = new Date(value.iso);
   });
   
   var request;
@@ -341,7 +342,7 @@ function handleLoginRequest(request) {
       currentUser = Object.assign({}, reply.response.results[0], {className: '_User'});
       return respond(200, reply.response.results[0])
     } else {
-      return Parse.Promise.error({ code: 400, message: 'username or passowrd is invalid' });
+      return Parse.Promise.error('username or passowrd is invalid');
     }
   });
 }
@@ -363,8 +364,6 @@ function handleRunRequest(request) {
 
   return promise.then((result) => {
     return respond(200, { result: result });
-  }, (error) => {
-    return { code: 400, message: error };
   });
 }
 
@@ -460,8 +459,6 @@ function handlePostRequest(request) {
     }
 
     return respond(201, response);
-  }, (error) => {
-    return { code: 400, message: error };
   });
 }
 
@@ -488,7 +485,7 @@ function handlePutRequest(request) {
 
   if (hooks.beforeSave[request.className]) {
     hooks.beforeSave[request.className]({
-      user: undefined,
+      user: currentUser,
       master: !!request.master,
       object: object,
     }, {
@@ -502,7 +499,7 @@ function handlePutRequest(request) {
   return promise.then(() => {
     if (hooks.afterSave[request.className]) {
       hooks.afterSave[request.className]({
-        user: undefined,
+        user: currentUser,
         master: !!request.master,
         object: object,
       });
@@ -515,8 +512,6 @@ function handlePutRequest(request) {
     );
 
     return respond(201, response);
-  }, (error) => {
-    return { code: 400, message: error };
   });
 }
 
@@ -553,8 +548,6 @@ function handleDeleteRequest(request) {
     }
 
     return respond(201, {});
-  }, (error) => {
-    return { code: 400, message: error };
   });
 }
 
