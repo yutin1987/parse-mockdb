@@ -159,6 +159,27 @@ describe('ParseMock Parse.Object', () => {
           });
         });
       });
+
+      it('should get date type when save date', () => {
+        const beforeSaveSpy = sinon.spy();
+
+        Parse.Cloud.beforeSave('Item', (request, response) => {
+          beforeSaveSpy(request);
+          response.success('beforeSave is error');
+        });
+
+        const item = new Parse.Object('Item');
+        return item.save({date: new Date()}, {useMasterKey: true}).then(() => {
+          expect(beforeSaveSpy).to.have.been.calledOnce;
+          expect(beforeSaveSpy.getCall(0).args[0].object.get('date')).to.be.an('date');
+          expect(item.id).to.exist;
+
+          const qItem = new Parse.Query('Item');
+          return qItem.count().then((count) => {
+            expect(count).to.equal(1);
+          });
+        });
+      });
     });
 
     describe('update', () => {

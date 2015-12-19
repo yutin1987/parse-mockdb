@@ -2,11 +2,12 @@
   "name": "parse-mockdb",
   "version": "0.1.2",
   "description": "Parse JS SDK Mocked Database",
-  "main": "src/parse-mockdb.js",
+  "main": "lib/parse-mockdb.js",
   "engines": {
     "node": ">=4.0.0"
   },
   "scripts": {
+    "build": "babel ./src --out-dir ./lib",
     "test": "mocha --compilers js:babel/register test/*.test.js"
   },
   "repository": {
