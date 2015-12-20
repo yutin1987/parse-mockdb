@@ -10,6 +10,7 @@ chai.use(sinonChai);
 function createItem(name) {
   const item = new Parse.Object('Item');
   item.set('name', name);
+  item.set('size', ['large', 'medium']);
 
   return item.save();
 }
@@ -75,9 +76,13 @@ describe('ParseMock Parse.Object', () => {
         expect(item1.get('name')).to.equal('Apple');
         expect(item2.get('name')).to.equal('Box');
 
+        item1.addUnique('size', 'small');
+        item1.addUnique('size', 'large');
+        item2.add('size', 'small');
+        item2.add('size', 'large');
         return Parse.Promise.when([
           item1.save({name: 'Book'}),
-          item2.save({size: 'big'}),
+          item2.save({color: 'red'}),
         ])
         .then(() => {
           const qItem = new Parse.Query('Item');
@@ -88,7 +93,11 @@ describe('ParseMock Parse.Object', () => {
           ])
           .then((item1, item2) => {
             expect(item1.get('name')).to.equal('Book');
-            expect(item2.get('size')).to.equal('big');
+            expect(item1.get('size').length).to.equal(3);
+            expect(item1.get('size')).to.have.members([ 'large', 'medium', 'small' ]);
+            expect(item2.get('color')).to.equal('red');
+            expect(item2.get('size')).to.have.members([ 'large', 'medium', 'small' ]);
+            expect(item2.get('size').length).to.equal(4);
           });
         });
       });
@@ -222,15 +231,17 @@ describe('ParseMock Parse.Object', () => {
           expect(item.id).to.exist;
           expect(item.get('name')).to.equal('Apple');
 
-          return item.save({name: 'Box'}).then((item) => {
+          return item.save({color: 'red'}).then((item) => {
             expect(beforeSaveSpy).to.have.been.calledOnce;
+            expect(beforeSaveSpy.getCall(0).args[0].object.dirtyKeys().length).to.equal(1);
+            expect(beforeSaveSpy.getCall(0).args[0].object.dirtyKeys()).to.have.members([ 'color' ]);
             expect(beforeSaveSpy.getCall(0).args[0].master).to.be.false;
             expect(item.id).to.exist;
 
             const qItem = new Parse.Query('Item');
             return qItem.first().then((newItem) => {
               expect(newItem.id).to.equal(item.id);
-              expect(newItem.get('name')).to.equal('Box');
+              expect(newItem.get('color')).to.equal('red');
             });
           });
         });

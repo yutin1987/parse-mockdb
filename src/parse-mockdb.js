@@ -1,7 +1,9 @@
 'use strict';
 
-const Parse = require('parse-shim');
-const _ = require('lodash');
+import Parse from 'parse-shim';
+import _ from 'lodash';
+import {isOp, isDate, isPointer, isParseObject} from './utils';
+import OpHandler from './op-handler';
 
 const DEFAULT_LIMIT = 100;
 const HARD_LIMIT = 1000;
@@ -30,6 +32,7 @@ let hooks = {
   beforeDelete: {},
   afterDelete: {},
 };
+let enableHook = true;
 
 let default_controller = null;
 let mocked = false;
@@ -110,89 +113,11 @@ function applyOps(data, ops) {
     const value = ops[key];
     const operator = value["__op"];
 
-    if (operator in UPDATE_OPERATORS) {
-      UPDATE_OPERATORS[operator].bind(data)(key, value)
+    if (operator in OpHandler) {
+      OpHandler[operator](data, key, value)
     } else {
       throw new Error("Unknown update operator:" + key);
     }
-  }
-}
-
-// Ensures `object` has an array at `key`. Creates array if `key` doesn't exist.
-// Will throw if value for `key` exists and is not Array.
-function ensureArray(object, key) {
-  if (!object[key]) {
-    object[key] = new Array();
-  }
-  if (!Array.isArray(object[key])) {
-    throw new Error("Can't perform array operaton on non-array field");
-  }
-}
-
-/**
- * Operator functions assume binding to **object** on which update operator is to be applied.
- *
- * Params:
- *    key   - value to be modified in bound object.
- *    value - operator value, i.e. `{__op: "Increment", amount: 1}`
- */
-const UPDATE_OPERATORS = {
-  Increment: function(key, value) {
-    this[key] += value.amount;
-  },
-  Add: function(key, value) {
-    ensureArray(this, key);
-    value.objects.forEach(object => {
-      this[key].push(object);
-    })
-  },
-  AddUnique: function(key, value) {
-    ensureArray(this, key);
-    var array = this[key];
-    value.objects.forEach(object => {
-      if (array.indexOf(value) === -1) {
-        array.push(object);
-      }
-    });
-  },
-  Remove: function(key, value) {
-    ensureArray(this, key);
-    var array = this[key];
-    value.objects.forEach(object => {
-      this[key] = _.reject(array, item => { return item === object });
-    });
-  },
-  Delete: function(key, value) {
-    delete this[key];
-  },
-  Batch: function(key, value) {
-    const addRelation = value.ops.filter(op => op.__op === 'AddRelation')[0];
-    UPDATE_OPERATORS.AddRelation.bind(this)(key, addRelation)
-
-    const removeRelation = value.ops.filter(op => op.__op === 'RemoveRelation')[0];
-    UPDATE_OPERATORS.RemoveRelation.bind(this)(key, removeRelation)
-  },
-  AddRelation: function(key, value) {
-    if (!this[key]) {
-      this[key] = { __type: 'Relation', className: value.objects[0].className, ids: [] };
-    }
-
-    value.objects.forEach(obj => {
-      const idx = this[key].ids.indexOf(obj.objectId);
-      if (idx < 0) this[key].ids.push(obj.objectId);
-    });
-
-    this[key].ids = this[key].ids.sort();
-  },
-  RemoveRelation: function(key, value) {
-    if (!this[key]) {
-      this[key] = { __type: 'Relation', className: value.objects[0].className, ids: [] };
-    }
-
-    value.objects.forEach(obj => {
-      const idx = this[key].ids.indexOf(obj.objectId);
-      if (idx > -1) this[key].ids.splice(idx, 1);
-    });
   }
 }
 
@@ -274,6 +199,7 @@ function handleRequest(method, path, body, options) {
     const value = body[key];
 
     if ( isDate(value) ) body[key] = new Date(value.iso);
+    else if ( isPointer(value) ) body[key] = Parse.Object.fromJSON(value);
   });
   
   var request;
@@ -435,9 +361,9 @@ function handlePostRequest(request) {
       const value = result[key];
       const operator = value["__op"];
 
-      if (operator in UPDATE_OPERATORS) {
+      if (operator in OpHandler) {
         delete result[key];
-        UPDATE_OPERATORS[operator].bind(result)(key, value);
+        OpHandler[operator](result, key, value);
       }
     }
 
@@ -463,10 +389,15 @@ function handlePostRequest(request) {
 }
 
 function handlePutRequest(request) {
-  const collection = getCollection(request.className);
-  const currentObject = collection[request.objectId];
+  const {
+    className,
+    data,
+    objectId,
+  } = request;
+
+  const collection = getCollection(className);
+  const currentObject = collection[objectId];
   const now = new Date();
-  const data = request.data;
 
   const ops = extractOps(data);
 
@@ -478,8 +409,8 @@ function handlePutRequest(request) {
 
   applyOps(updatedObject, ops);
   
-  const object =  new Parse.Object(request.className);
-  object.set(updatedObject);
+  const object = Parse.Object.fromJSON(Object.assign({}, updatedObject, {className}));
+  object.set(data);
 
   const promise = new Parse.Promise();
 
@@ -557,18 +488,6 @@ function makePointer(className, id) {
     className: className,
     objectId: id,
   }
-}
-
-function isOp(object) {
-  return object && typeof object === "object" && "__op" in object;
-}
-
-function isPointer(object) {
-  return object && object.__type === "Pointer";
-}
-
-function isDate(object) {
-  return object && object.__type === "Date";
 }
 
 /**
@@ -846,7 +765,7 @@ function promiseResultSync(promise) {
 }
 
 function setUser(user) {
-  currentUser = user;
+  
 }
 
 if (Parse.Cloud) {
@@ -861,7 +780,9 @@ Parse.MockDB = {
   mockDB: mockDB,
   unMockDB: unMockDB,
   cleanUp: cleanUp,
-  setUser: setUser,
+  setUser: (user) => currentUser = user,
+  enableHook: () => enableHook = true,
+  disableHook: () => enableHook = false,
   promiseResultSync: promiseResultSync,
 };
 
