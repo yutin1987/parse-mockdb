@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for src/utils.js</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">src/</a> utils.js
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">85.71% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>6/7</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">77.78% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>7/9</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">75% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>3/4</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">85.71% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>6/7</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line high'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">57×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">59×</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1×</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">"use strict";
+&nbsp;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports["default"] = {
+  isOp: function isOp(object) {
+    return object &amp;&amp; typeof object === "object" &amp;&amp; "__op" in object;
+  },
+  isPointer: function isPointer(object) {
+    return object &amp;&amp; object.__type === "Pointer";
+  },
+  isDate: function isDate(object) {
+    return object &amp;&amp; object.__type === "Date";
+  },
+  isParseObject: <span class="fstat-no" title="function not covered" >function isParseObject(object) {</span>
+<span class="cstat-no" title="statement not covered" >    return object &amp;&amp; object instanceof Parse.Object;</span>
+  }
+};
+module.exports = exports["default"];
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJzb3VyY2VzIjpbIi9Vc2Vycy95dXRpbi9EZXZlbG9wL2dpdGh1Yi9wYXJzZS1tb2NrZGIvc3JjL3V0aWxzLmpzIl0sIm5hbWVzIjpbXSwibWFwcGluZ3MiOiI7Ozs7O3FCQUFlO0FBQ2IsTUFBSSxFQUFFLFNBQVMsSUFBSSxDQUFDLE1BQU0sRUFBRTtBQUMxQixXQUFPLE1BQU0sSUFBSSxPQUFPLE1BQU0sS0FBSyxRQUFRLElBQUksTUFBTSxJQUFJLE1BQU0sQ0FBQztHQUNqRTtBQUNELFdBQVMsRUFBRSxTQUFTLFNBQVMsQ0FBQyxNQUFNLEVBQUU7QUFDcEMsV0FBTyxNQUFNLElBQUksTUFBTSxDQUFDLE1BQU0sS0FBSyxTQUFTLENBQUM7R0FDOUM7QUFDRCxRQUFNLEVBQUUsU0FBUyxNQUFNLENBQUMsTUFBTSxFQUFFO0FBQzlCLFdBQU8sTUFBTSxJQUFJLE1BQU0sQ0FBQyxNQUFNLEtBQUssTUFBTSxDQUFDO0dBQzNDO0FBQ0QsZUFBYSxFQUFFLFNBQVMsYUFBYSxDQUFDLE1BQU0sRUFBRTtBQUM1QyxXQUFPLE1BQU0sSUFBSSxNQUFNLFlBQVksS0FBSyxDQUFDLE1BQU0sQ0FBQztHQUNqRDtDQUNGIiwiZmlsZSI6Ii9Vc2Vycy95dXRpbi9EZXZlbG9wL2dpdGh1Yi9wYXJzZS1tb2NrZGIvc3JjL3V0aWxzLmpzIiwic291cmNlc0NvbnRlbnQiOlsiZXhwb3J0IGRlZmF1bHQge1xuICBpc09wOiBmdW5jdGlvbiBpc09wKG9iamVjdCkge1xuICAgIHJldHVybiBvYmplY3QgJiYgdHlwZW9mIG9iamVjdCA9PT0gXCJvYmplY3RcIiAmJiBcIl9fb3BcIiBpbiBvYmplY3Q7XG4gIH0sXG4gIGlzUG9pbnRlcjogZnVuY3Rpb24gaXNQb2ludGVyKG9iamVjdCkge1xuICAgIHJldHVybiBvYmplY3QgJiYgb2JqZWN0Ll9fdHlwZSA9PT0gXCJQb2ludGVyXCI7XG4gIH0sXG4gIGlzRGF0ZTogZnVuY3Rpb24gaXNEYXRlKG9iamVjdCkge1xuICAgIHJldHVybiBvYmplY3QgJiYgb2JqZWN0Ll9fdHlwZSA9PT0gXCJEYXRlXCI7XG4gIH0sXG4gIGlzUGFyc2VPYmplY3Q6IGZ1bmN0aW9uIGlzUGFyc2VPYmplY3Qob2JqZWN0KSB7XG4gICAgcmV0dXJuIG9iamVjdCAmJiBvYmplY3QgaW5zdGFuY2VvZiBQYXJzZS5PYmplY3Q7XG4gIH0sXG59OyJdfQ==</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Sun Dec 20 2015 18:43:45 GMT+0800 (CST)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

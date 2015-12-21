@@ -363,7 +363,7 @@ function handlePostRequest(request) {
 
       if (operator in OpHandler) {
         delete result[key];
-        OpHandler[operator](result, key, value);
+        OpHandler[operator](result, key, value, {});
       }
     }
 
@@ -371,14 +371,14 @@ function handlePostRequest(request) {
 
     const response = Object.assign(
       _.cloneDeep(_.omit(result, 'updatedAt')),
-      { createdAt: result.createdAt.toJSON() }
+      { createdAt: result.createdAt.toISOString() }
     );
 
     if (hooks.afterSave[className]) {
       const savedObject = Parse.Object.fromJSON(Object.assign({}, result, {className}));
 
       hooks.afterSave[className]({
-        user: undefined,
+        user: request.user || undefined,
         master: !!request.master,
         object: savedObject,
       });
@@ -396,27 +396,16 @@ function handlePutRequest(request) {
   } = request;
 
   const collection = getCollection(className);
-  const currentObject = collection[objectId];
-  const now = new Date();
+  const currentObject = _.cloneDeep(collection[objectId]);
 
-  const ops = extractOps(data);
-
-  var updatedObject = Object.assign(
-    _.cloneDeep(currentObject),
-    data,
-    { updatedAt: now }
-  );
-
-  applyOps(updatedObject, ops);
-  
-  const object = Parse.Object.fromJSON(Object.assign({}, updatedObject, {className}));
+  const object = Parse.Object.fromJSON(Object.assign({}, currentObject, {className}));
   object.set(data);
 
   const promise = new Parse.Promise();
 
   if (hooks.beforeSave[request.className]) {
     hooks.beforeSave[request.className]({
-      user: currentUser,
+      user: currentUser || undefined,
       master: !!request.master,
       object: object,
     }, {
@@ -428,18 +417,34 @@ function handlePutRequest(request) {
   }
 
   return promise.then(() => {
+    const result = Object.assign( object.toJSON(), { updatedAt: new Date() } );
+
+    for (let key in result) {
+      const value = result[key];
+      const operator = value["__op"];
+
+      if (operator in OpHandler) {
+        delete result[key];
+        OpHandler[operator](result, key, value, currentObject || {});
+      }
+    }
+
+    collection[request.objectId] = result;
+
+
     if (hooks.afterSave[request.className]) {
+      const savedObject = Parse.Object.fromJSON(Object.assign({}, result, {className}));
+
       hooks.afterSave[request.className]({
-        user: currentUser,
+        user: currentUser || undefined,
         master: !!request.master,
-        object: object,
+        object: savedObject,
       });
     }
 
-    collection[request.objectId] = object.toJSON();
     const response = Object.assign(
-      _.cloneDeep(_.omit(object.toJSON(), ['createdAt', 'objectId'])),
-      { updatedAt: now }
+      _.cloneDeep(_.omit(result, ['createdAt', 'objectId'])),
+      { updatedAt: result.updatedAt.toISOString() }
     );
 
     return respond(201, response);
