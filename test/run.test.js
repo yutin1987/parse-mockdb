@@ -20,7 +20,7 @@ describe('ParseMock Parse.Cloud.run', () => {
   });
 
   afterEach(() => {
-    Parse.MockDB.cleanUp();
+    Parse.MockDB.cleanUp(true);
   });
 
   it("should save item and find 2 item using cloud run", () => {

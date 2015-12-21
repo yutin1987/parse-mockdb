@@ -11,7 +11,9 @@ const MAX_SKIP = 10000;
 const QUOTE_REGEXP = /(\\Q|\\E)/g;
 
 const CONFIG = {
-  DEBUG: process.env.DEBUG_DB
+  DEBUG: process.env.DEBUG_ALL,
+  DEBUG_DB: process.env.DEBUG_DB,
+  DEBUG_HOOK: process.env.DEBUG_HOOK,
 }
 
 const HANDLERS = {
@@ -34,7 +36,7 @@ let hooks = {
 };
 let enableHook = true;
 
-let default_controller = null;
+let defaultController = null;
 let mocked = false;
 
 /**
@@ -43,7 +45,7 @@ let mocked = false;
  */
 function mockDB() {
   if (!mocked) {
-    default_controller = Parse.CoreManager.getRESTController();
+    defaultController = Parse.CoreManager.getRESTController();
     mocked = true;
     Parse.CoreManager.setRESTController(MockRESTController);
   }
@@ -54,77 +56,17 @@ function mockDB() {
  */
 function unMockDB() {
   if (mocked) {
-    Parse.CoreManager.setRESTController(default_controller);
+    Parse.CoreManager.setRESTController(defaultController);
     mocked = false;
   }
 }
 
-/**
- * Clears the MockDB and any registered hooks.
- */
-function cleanUp(dataOnly) {
-  db = {};
-  currentUser = null;
-
-  if (!dataOnly) {
-    define = {};
-    hooks = {
-      beforeSave: {},
-      afterSave: {},
-      beforeDelete: {},
-      afterDelete: {},
-    };
-  }
-}
-
-/**
- * Retrieves a previously registered hook.
- *
- * @param {string} className The name of the class to get the hook on.
- * @param {string} hookType One of 'beforeSave', 'afterSave', 'beforeDelete', 'afterDelete'
- */
-function getHook(className, hookType) {
-  if (hooks[className] && hooks[className][hookType]) {
-    return hooks[className][hookType];
-  }
-}
-
-// Destructive. Takes data for update operation and removes all atomic operations.
-// Returns the extracted ops.
-function extractOps(data) {
-  var ops = new Object();
-
-  for (var key in data) {
-    var attribute = data[key];
-    if (isOp(attribute)) {
-      ops[key] = attribute;
-      delete data[key];
-    }
-  }
-
-  return ops;
-}
-
-// Destructive. Applys all the update `ops` to `data`.
-// Throws on unknown update operator.
-function applyOps(data, ops) {
-  debugPrint('OPS', ops);
-  for (var key in ops) {
-    const value = ops[key];
-    const operator = value["__op"];
-
-    if (operator in OpHandler) {
-      OpHandler[operator](data, key, value)
-    } else {
-      throw new Error("Unknown update operator:" + key);
-    }
-  }
-}
-
 function debugPrint(prefix, object) {
-  if (CONFIG.DEBUG) {
-    console.log('[' + prefix + ']', JSON.stringify(object, null, 4));
-  }
+  if (CONFIG.DEBUG || CONFIG.DEBUG_DB) console.log('[' + prefix + ']', JSON.stringify(object, null, 4));
+}
+
+function debugHookPrint(prefix, object) {
+  if (CONFIG.DEBUG || CONFIG.DEBUG_HOOK) console.log('[' + prefix + ']', JSON.stringify(object, null, 4));
 }
 
 function getCollection(collection) {
@@ -335,7 +277,8 @@ function handlePostRequest(request) {
   const object =  new Parse.Object(className);
   object.set(data);
 
-  if (hooks.beforeSave[className]) {
+  if (enableHook && hooks.beforeSave[className]) {
+    debugHookPrint('POST', `Call ${className} beforeSave`);
     hooks.beforeSave[className]({
       user: request.user || undefined,
       master: !!request.master,
@@ -345,6 +288,7 @@ function handlePostRequest(request) {
       error: (error) => promise.reject(error)
     });
   } else {
+    debugHookPrint('POST', `No call ${className} beforeSave, ` + (enableHook ? 'without a hook set' : 'disable'));
     promise.resolve();
   }
 
@@ -354,16 +298,18 @@ function handlePostRequest(request) {
 
     const result = Object.assign(
       object.toJSON(),
-      { objectId: newId, createdAt: new Date(), updatedAt: new Date() }
+      { objectId: newId, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
     );
 
     for (let key in result) {
       const value = result[key];
-      const operator = value["__op"];
-
-      if (operator in OpHandler) {
-        delete result[key];
-        OpHandler[operator](result, key, value, {});
+      
+      if (isOp(value)) {
+        const operator = value["__op"];
+        if (operator in OpHandler) {
+          delete result[key];
+          OpHandler[operator](result, key, value, {});
+        }
       }
     }
 
@@ -371,10 +317,11 @@ function handlePostRequest(request) {
 
     const response = Object.assign(
       _.cloneDeep(_.omit(result, 'updatedAt')),
-      { createdAt: result.createdAt.toISOString() }
+      { createdAt: result.createdAt }
     );
 
-    if (hooks.afterSave[className]) {
+    if (enableHook && hooks.afterSave[className]) {
+      debugHookPrint('POST', `Call ${className} afterSave`);
       const savedObject = Parse.Object.fromJSON(Object.assign({}, result, {className}));
 
       hooks.afterSave[className]({
@@ -382,6 +329,8 @@ function handlePostRequest(request) {
         master: !!request.master,
         object: savedObject,
       });
+    } else {
+      debugHookPrint('POST', `No call ${className} afterSave, ` + (enableHook ? 'without a hook set' : 'disable'));
     }
 
     return respond(201, response);
@@ -401,9 +350,11 @@ function handlePutRequest(request) {
   const object = Parse.Object.fromJSON(Object.assign({}, currentObject, {className}));
   object.set(data);
 
+
   const promise = new Parse.Promise();
 
-  if (hooks.beforeSave[request.className]) {
+  if (enableHook && hooks.beforeSave[request.className]) {
+    debugHookPrint('PUT', `Call ${className} beforeSave`);
     hooks.beforeSave[request.className]({
       user: currentUser || undefined,
       master: !!request.master,
@@ -413,26 +364,30 @@ function handlePutRequest(request) {
       error: (error) => promise.reject(error),
     });
   } else {
+    debugHookPrint('PUT', `No call ${className} beforeSave, ` + (enableHook ? 'without a hook set' : 'disable'));
     promise.resolve();
   }
 
   return promise.then(() => {
-    const result = Object.assign( object.toJSON(), { updatedAt: new Date() } );
+    const result = Object.assign( object.toJSON(), { updatedAt: new Date().toISOString() } );
 
     for (let key in result) {
       const value = result[key];
-      const operator = value["__op"];
 
-      if (operator in OpHandler) {
-        delete result[key];
-        OpHandler[operator](result, key, value, currentObject || {});
+      if (isOp(value)) {
+        const operator = value["__op"];
+        if (operator in OpHandler) {
+          delete result[key];
+          OpHandler[operator](result, key, value, currentObject || {});
+        }
       }
     }
-
+    
     collection[request.objectId] = result;
 
 
-    if (hooks.afterSave[request.className]) {
+    if (enableHook && hooks.afterSave[request.className]) {
+      debugHookPrint('PUT', `Call ${className} afterSave`);
       const savedObject = Parse.Object.fromJSON(Object.assign({}, result, {className}));
 
       hooks.afterSave[request.className]({
@@ -440,11 +395,13 @@ function handlePutRequest(request) {
         master: !!request.master,
         object: savedObject,
       });
+    } else {
+      debugHookPrint('PUT', `No call ${className} afterSave, ` + (enableHook ? 'without a hook set' : 'disable'));
     }
 
     const response = Object.assign(
       _.cloneDeep(_.omit(result, ['createdAt', 'objectId'])),
-      { updatedAt: result.updatedAt.toISOString() }
+      { updatedAt: result.updatedAt }
     );
 
     return respond(201, response);
@@ -459,7 +416,7 @@ function handleDeleteRequest(request) {
 
   const promise = new Parse.Promise();
 
-  if (hooks.beforeDelete[request.className]) {
+  if (enableHook && hooks.beforeDelete[request.className]) {
     hooks.beforeDelete[request.className]({
       user: currentUser,
       master: !!request.master,
@@ -475,7 +432,7 @@ function handleDeleteRequest(request) {
   return promise.then(() => {
     delete collection[request.objectId];
 
-    if (hooks.afterDelete[request.className]) {
+    if (enableHook && hooks.afterDelete[request.className]) {
       hooks.afterDelete[request.className]({
         user: currentUser,
         master: !!request.master,
@@ -694,7 +651,7 @@ const QUERY_OPERATORS = {
   },
   '$relatedTo': function(value) {
     const relatedObj = fetchObjectByPointer(value.object);
-    const ids = relatedObj[value.key].ids || [];
+    const ids = relatedObj[value.key] && relatedObj[value.key].ids || [];
     return ids.indexOf(this) > -1;
   },
 }
@@ -784,7 +741,20 @@ if (Parse.Cloud) {
 Parse.MockDB = {
   mockDB: mockDB,
   unMockDB: unMockDB,
-  cleanUp: cleanUp,
+  cleanUp: (all) => {
+    db = {};
+    currentUser = null;
+
+    if (all) {
+      define = {};
+      hooks = {
+        beforeSave: {},
+        afterSave: {},
+        beforeDelete: {},
+        afterDelete: {},
+      };
+    }
+  },
   setUser: (user) => currentUser = user,
   enableHook: () => enableHook = true,
   disableHook: () => enableHook = false,

@@ -175,7 +175,7 @@ describe('ParseMock', function(){
   });
 
   afterEach(function() {
-    Parse.MockDB.cleanUp();
+    Parse.MockDB.cleanUp(true);
   });
 
   context('supports Parse.User subclasses', function() {

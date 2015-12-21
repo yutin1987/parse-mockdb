@@ -33,7 +33,7 @@ describe('ParseMock Parse.Relation', () => {
   });
 
   afterEach(() => {
-    Parse.MockDB.cleanUp();
+    Parse.MockDB.cleanUp(true);
   });
 
   it("should save relation and find 2 item", () => {

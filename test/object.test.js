@@ -21,7 +21,7 @@ describe('ParseMock Parse.Object', () => {
   });
 
   afterEach(() => {
-    Parse.MockDB.cleanUp();
+    Parse.MockDB.cleanUp(true);
   });
 
   it("should save object", () => {

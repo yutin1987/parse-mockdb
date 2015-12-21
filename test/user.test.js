@@ -27,7 +27,7 @@ describe('ParseMock Parse.User', () => {
   });
 
   afterEach(() => {
-    Parse.MockDB.cleanUp();
+    Parse.MockDB.cleanUp(true);
   });
 
   it("should save user", () => {
