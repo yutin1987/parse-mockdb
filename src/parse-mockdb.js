@@ -2,7 +2,7 @@
 
 import Parse from 'parse-shim';
 import _ from 'lodash';
-import {isOp, isDate, isPointer, isParseObject} from './utils';
+import {isOp, isDate, isPointer, isRelation, isParseObject} from './utils';
 import OpHandler from './op-handler';
 
 const DEFAULT_LIMIT = 100;
@@ -639,7 +639,13 @@ const QUERY_OPERATORS = {
   '$inQuery': function(query) {
     var matches = recursivelyMatch(query.className, query.where);
     return _.find(matches, function(match) {
-      return this && match.objectId === this.objectId;
+      if (!this) {
+        return false;
+      } else if (isRelation(this)) {
+        return this.ids.indexOf(match.objectId) > -1;
+      } else {
+        return match.objectId === this.objectId;
+      }
     }, this);
   },
   '$all': function(value) {
