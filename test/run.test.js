@@ -42,6 +42,7 @@ describe('ParseMock Parse.Cloud.run', () => {
     .then((item1, item2, item3) => {
       return Parse.Cloud.run('findItem').then((items) => {
         expect(items.length).to.equal(2);
+        expect(items[0]).to.be.an.instanceof(Parse.Object);
         expect(items.map((item) => item.id)).to.have.members([ item1.id, item3.id ]);
       }, (err) => {
         throw new Error("should not have error");

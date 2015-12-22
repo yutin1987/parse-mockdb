@@ -2,7 +2,7 @@
 
 import Parse from 'parse-shim';
 import _ from 'lodash';
-import {isOp, isDate, isPointer, isRelation, isParseObject} from './utils';
+import {isOp, isPointer, isDate, isRelation, isParseObject} from './utils';
 import OpHandler from './op-handler';
 
 const DEFAULT_LIMIT = 100;
@@ -144,44 +144,39 @@ function handleRequest(method, path, body, options) {
     else if ( isPointer(value) ) body[key] = Parse.Object.fromJSON(value);
   });
   
-  var request;
+  let request = {};
+  const defaultRequest = {
+    data: body,
+    user: currentUser,
+    master: options && options.useMasterKey ? true : false,
+  };
   switch(explodedPath[0]) {
     case 'login':
-      request = {
+      request = Object.assign(defaultRequest, {
         method: 'LOGIN',
         className: '_User',
-        data: body,
-      };
+      });
       break;
     case 'users':
-      request = {
+      request = Object.assign(defaultRequest, {
         method: method,
         className: '_User',
-        data: body,
-        user: currentUser,
         objectId: explodedPath[1],
-        master: options && options.useMasterKey ? true : false,
-      };
+      });
       break;
     case 'functions':
-      request = {
+      request = Object.assign(defaultRequest, {
         method: 'RUN',
         functions: explodedPath[1],
-        data: body,
-        user: currentUser,
-        master: options && options.useMasterKey ? true : false,
-      };
+      });
       break;
     case 'classes':
     default: {
-      request = {
+      request = Object.assign(defaultRequest, {
         method: method,
         className: explodedPath[1],
-        data: body,
-        user: currentUser,
         objectId: explodedPath[2],
-        master: options && options.useMasterKey ? true : false,
-      };
+      });
     }
   }
 
@@ -231,6 +226,7 @@ function handleRunRequest(request) {
   });
 
   return promise.then((result) => {
+    if (_.isArray(result)) result = result.map((item) => item._toFullJSON());
     return respond(200, { result: result });
   });
 }
